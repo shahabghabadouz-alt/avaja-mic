@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>AVAJA · Presence Lab v6</title>
+<title>AVAJA · Presence Lab v7</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;background:#0e0c0a;color:#c8d4e0;font-family:Tahoma,sans-serif;overflow:hidden;user-select:none;}
@@ -102,7 +102,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-noise">
       <div class="ly-top">
         <span class="ly-name">Noise</span>
-        <button class="ly-tog" id="ntog" onclick="toggleLayer('noise')"></button>
+        <button class="ly-tog" id="noisetog" onclick="toggleLayer('noise')"></button>
       </div>
       <input type="range" id="nv" min="1" max="100" value="30" oninput="setLayerVol('noise',this.value)">
     </div>
@@ -110,7 +110,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-bass">
       <div class="ly-top">
         <span class="ly-name">Bass</span>
-        <button class="ly-tog" id="btog" onclick="toggleLayer('bass')"></button>
+        <button class="ly-tog" id="basstog" onclick="toggleLayer('bass')"></button>
       </div>
       <input type="range" id="bv" min="1" max="100" value="50" oninput="setLayerVol('bass',this.value)">
     </div>
@@ -118,7 +118,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-rain">
       <div class="ly-top">
         <span class="ly-name">Rain</span>
-        <button class="ly-tog" id="rtog" onclick="toggleLayer('rain')"></button>
+        <button class="ly-tog" id="raintog" onclick="toggleLayer('rain')"></button>
       </div>
       <input type="range" id="rv2" min="1" max="100" value="25" oninput="setLayerVol('rain',this.value)">
     </div>
@@ -295,16 +295,34 @@ function play(idx){
   else{sPad(getChords(idx),v,r,t);}
   rpl(f);
 }
-function dn(a,s){if(!sbus)return;var t=ac.currentTime;sbus.gain.cancelScheduledValues(t);sbus.gain.setValueAtTime(sbus.gain.value,t);sbus.gain.linearRampToValueAtTime(1-a,t+.05);sbus.gain.linearRampToValueAtTime(1,t+.05+s);}
+function dn(a,s){
+  if(!sbus)return;
+  var t=ac.currentTime;
+  sbus.gain.cancelScheduledValues(t);
+  sbus.gain.setValueAtTime(sbus.gain.value,t);
+  sbus.gain.linearRampToValueAtTime(1-a,t+.05);
+  sbus.gain.linearRampToValueAtTime(1,t+.05+s);
+  // noise: duck during play, restore after silence
+  if(layers.noise.on){
+    ['b','p'].forEach(function(k){
+      var nd=layers.noise.nodes[k];
+      if(!nd)return;
+      nd.g.gain.cancelScheduledValues(t);
+      nd.g.gain.setValueAtTime(nd.g.gain.value,t);
+      nd.g.gain.linearRampToValueAtTime(0.005,t+.08);
+      nd.g.gain.linearRampToValueAtTime((k==='b'?.06:.04)*layers.noise.vol*3,t+.08+s+0.8);
+    });
+  }
+}
 
 // ── Ambient Layers ────────────────────────────────────────────────────
 function toggleLayer(name){
-  ia();
+  ia();rs();
   layers[name].on=!layers[name].on;
-  var tog=document.getElementById(name[0]+'tog');
+  var tog=document.getElementById(name+'tog');
   var ly=document.getElementById('ly-'+name);
-  tog.classList.toggle('on',layers[name].on);
-  ly.classList.toggle('on',layers[name].on);
+  if(tog)tog.classList.toggle('on',layers[name].on);
+  if(ly)ly.classList.toggle('on',layers[name].on);
   if(layers[name].on){startLayer(name);}else{stopLayer(name);}
 }
 
@@ -363,14 +381,14 @@ function scheduleBass(){
 // Rain: soft strikes from current chord, random 2-6s intervals
 function scheduleRain(){
   if(!layers.rain.on)return;
-  var delay=2000+Math.random()*4000;
+  var delay=1500+Math.random()*3500;
   layers.rain.timer=setTimeout(function(){
     if(!layers.rain.on||!ac)return;
     // pick random note from current chord
     var idxs=currentChordIdxs;
     var pick=idxs[Math.floor(Math.random()*idxs.length)];
     var f=calFreqs[pick];
-    var vol=layers.rain.vol*0.22;
+    var vol=layers.rain.vol*0.45;
     // soft gentle strike
     var fr=440/f,atk=.008*Math.pow(fr,.35),dec=.35*Math.pow(fr,.45);
     var g=ac.createGain(),rg=ac.createGain();rg.gain.value=0.55;g.connect(mg);g.connect(rg);rg.connect(rv);
