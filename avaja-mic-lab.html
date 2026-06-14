@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>AVAJA · Mic Lab</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#0a0a0f;color:#c8d4e8;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;overflow:hidden;touch-action:none;}
+
+#canvas{position:fixed;inset:0;width:100%;height:100%;}
+
+#ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;pointer-events:none;}
+
+#listen-btn{
+  pointer-events:all;
+  width:120px;height:120px;border-radius:50%;
+  border:1.5px solid rgba(160,190,240,.35);
+  background:radial-gradient(circle at 40% 35%,rgba(100,140,220,.18),rgba(20,25,50,.85));
+  color:rgba(180,210,255,.8);
+  font-size:11px;font-weight:300;letter-spacing:.2em;
+  cursor:pointer;outline:none;
+  transition:border-color .3s,box-shadow .3s;
+  text-transform:uppercase;
+}
+#listen-btn:active{border-color:rgba(160,190,240,.7);box-shadow:0 0 28px rgba(120,160,255,.25);}
+#listen-btn.active{border-color:rgba(120,200,160,.6);box-shadow:0 0 24px rgba(80,200,140,.15);}
+
+/* meter ring */
+#meter-wrap{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;}
+#meter-svg{overflow:visible;}
+
+/* note display */
+#note-display{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:28px 24px 40px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+#note-name{
+  font-size:52px;font-weight:200;letter-spacing:.08em;
+  color:rgba(200,220,255,.95);
+  min-height:64px;text-align:center;
+  transition:opacity .15s;
+}
+#note-sub{font-size:10px;letter-spacing:.25em;color:rgba(140,170,210,.5);text-transform:uppercase;min-height:14px;}
+#onset-flash{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(120,200,160,.9);
+  box-shadow:0 0 12px rgba(80,200,140,.6);
+  opacity:0;transition:opacity .05s;
+}
+
+/* scale dots */
+#scale-row{
+  position:fixed;top:0;left:0;right:0;
+  padding:22px 16px 0;
+  display:flex;justify-content:center;gap:8px;flex-wrap:wrap;
+  pointer-events:none;
+}
+.sdot{
+  width:8px;height:8px;border-radius:50%;
+  border:1px solid rgba(140,170,220,.3);
+  background:transparent;
+  transition:background .12s,box-shadow .12s;
+}
+.sdot.lit{
+  background:rgba(160,200,255,.8);
+  box-shadow:0 0 8px rgba(120,170,255,.5);
+}
+
+#status{position:fixed;top:18px;left:0;right:0;text-align:center;font-size:9px;letter-spacing:.2em;color:rgba(120,150,190,.45);text-transform:uppercase;}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="status">AVAJA · MIC LAB</div>
+
+<!-- 18 scale dots, one per D Aegean note -->
+<div id="scale-row" id="sdots"></div>
+
+<div id="ui">
+  <button id="listen-btn">گوش بده</button>
+</div>
+
+<div id="note-display">
+  <div id="onset-flash"></div>
+  <div id="note-name">—</div>
+  <div id="note-sub"></div>
+</div>
+
+<script>
+// ── D Aegean 18 notes ──────────────────────────────────────────────────
+var SCALE=[
+  {f:73.42, n:'D2'}, {f:82.41, n:'E2'}, {f:87.31, n:'F2'}, {f:98.00, n:'G2'},
+  {f:110.00,n:'A2'}, {f:116.54,n:'Bb2'},{f:130.81,n:'C3'}, {f:146.83,n:'D3'},
+  {f:164.81,n:'E3'}, {f:174.61,n:'F3'}, {f:196.00,n:'G3'}, {f:220.00,n:'A3'},
+  {f:233.08,n:'Bb3'},{f:261.63,n:'C4'}, {f:293.66,n:'D4'}, {f:329.63,n:'E4'},
+  {f:349.23,n:'F4'}, {f:392.00,n:'G4'}
+];
+
+// ── Build scale dots ───────────────────────────────────────────────────
+var sdotRow=document.getElementById('scale-row');
+var dots=[];
+SCALE.forEach(function(s,i){
+  var d=document.createElement('div');d.className='sdot';d.title=s.n;
+  sdotRow.appendChild(d);dots.push(d);
+});
+
+// ── Canvas ambient background ──────────────────────────────────────────
+var cv=document.getElementById('canvas'),ctx=cv.getContext('2d');
+var W,H,CX,CY;
+function siz(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;CX=W/2;CY=H/2;}
+window.addEventListener('resize',siz);siz();
+
+var rings=[];
+for(var r=0;r<5;r++){
+  rings.push({r:80+r*45,op:0.04+r*.018,ph:r*0.7,spd:.0003+r*.0002});
+}
+var onsetGlow=0;
+
+function drawFrame(){
+  requestAnimationFrame(drawFrame);
+  ctx.clearRect(0,0,W,H);
+  // ambient ring glow
+  rings.forEach(function(rg){
+    rg.ph+=rg.spd;
+    var op=rg.op*(0.7+0.3*Math.sin(rg.ph));
+    if(onsetGlow>0)op*=(1+onsetGlow*3);
+    ctx.beginPath();ctx.arc(CX,CY,rg.r+Math.sin(rg.ph*2)*3,0,Math.PI*2);
+    ctx.strokeStyle='rgba(120,160,240,'+op.toFixed(3)+')';ctx.lineWidth=1;ctx.stroke();
+  });
+  if(onsetGlow>0)onsetGlow=Math.max(0,onsetGlow-.04);
+
+  // energy bar (filled from rms)
+  if(rmsVal>0.01){
+    var bh=Math.min(80,rmsVal*500);
+    ctx.fillStyle='rgba(100,200,140,0.12)';
+    ctx.fillRect(CX-2,CY-bh/2,4,bh);
+  }
+}
+drawFrame();
+
+// ── Audio analysis ─────────────────────────────────────────────────────
+var ac=null,analyser=null,dataArr=null,stream=null;
+var FFT=2048;
+var rmsVal=0;
+var lastOnset=0,onsetCooldown=120; // ms
+var lastNoteIdx=-1;
+var listening=false;
+
+var btn=document.getElementById('listen-btn');
+var noteName=document.getElementById('note-name');
+var noteSub=document.getElementById('note-sub');
+var onsetEl=document.getElementById('onset-flash');
+
+btn.addEventListener('click',function(){
+  if(!listening) startListening(); else stopListening();
+});
+
+function startListening(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    noteName.textContent='❌';noteSub.textContent='getUserMedia not supported';return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false})
+  .then(function(s){
+    stream=s;
+    ac=new(window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==='suspended')ac.resume();
+    var src=ac.createMediaStreamSource(s);
+    analyser=ac.createAnalyser();analyser.fftSize=FFT;analyser.smoothingTimeConstant=0.6;
+    src.connect(analyser);
+    dataArr=new Float32Array(analyser.frequencyBinCount);
+    listening=true;
+    btn.textContent='توقف';btn.classList.add('active');
+    noteSub.textContent='listening · D Aegean · 18 notes';
+    tick();
+  })
+  .catch(function(e){
+    noteName.textContent='❌';noteSub.textContent=e.message||'permission denied';
+  });
+}
+
+function stopListening(){
+  listening=false;
+  if(stream)stream.getTracks().forEach(function(t){t.stop();});
+  if(ac)ac.close();
+  ac=null;analyser=null;
+  btn.textContent='گوش بده';btn.classList.remove('active');
+  noteName.textContent='—';noteSub.textContent='';
+  dots.forEach(function(d){d.classList.remove('lit');});
+}
+
+// ── RMS energy from time domain ────────────────────────────────────────
+function getRMS(buf){
+  var sum=0;for(var i=0;i<buf.length;i++)sum+=buf[i]*buf[i];
+  return Math.sqrt(sum/buf.length);
+}
+
+// ── Template-match pitch on D Aegean freqs ────────────────────────────
+// For each candidate note, sum FFT energy in a narrow window around it
+// and its first two harmonics. Winner = highest template score.
+function detectPitch(freqData,sr){
+  var binHz=sr/FFT;
+  var bw=2; // bins either side
+  function binPower(f){
+    var b=Math.round(f/binHz);
+    var sum=0;
+    for(var i=Math.max(0,b-bw);i<=Math.min(freqData.length-1,b+bw);i++)
+      sum+=Math.pow(10,freqData[i]/20); // dB → linear
+    return sum;
+  }
+  var best=-1,bestScore=-Infinity;
+  SCALE.forEach(function(s,i){
+    var score=binPower(s.f)*1.0+binPower(s.f*2)*0.5+binPower(s.f*3)*0.25;
+    if(score>bestScore){bestScore=score;best=i;}
+  });
+  return {idx:best,score:bestScore};
+}
+
+// ── Main tick ──────────────────────────────────────────────────────────
+var timeBuf=null;
+var freqBuf=null;
+var onsetHistory=[];
+var ONSET_THRESH=0.018; // tune this per environment
+var MIN_SCORE=0.8;      // min template score to claim a pitch
+var globalMaxScore=0;
+
+function tick(){
+  if(!listening||!analyser)return;
+  requestAnimationFrame(tick);
+
+  if(!timeBuf)timeBuf=new Float32Array(analyser.fftSize);
+  if(!freqBuf)freqBuf=new Float32Array(analyser.frequencyBinCount);
+
+  analyser.getFloatTimeDomainData(timeBuf);
+  analyser.getFloatFrequencyData(freqBuf);
+
+  var rms=getRMS(timeBuf);
+  rmsVal=rms;
+
+  // Onset — sudden energy rise
+  var now=Date.now();
+  onsetHistory.push(rms);
+  if(onsetHistory.length>8)onsetHistory.shift();
+  var avg=onsetHistory.reduce(function(a,b){return a+b;},0)/onsetHistory.length;
+
+  if(rms>ONSET_THRESH&&rms>avg*2.2&&now-lastOnset>onsetCooldown){
+    lastOnset=now;
+    onsetGlow=1;
+    onsetEl.style.opacity='1';
+    setTimeout(function(){onsetEl.style.opacity='0';},80);
+
+    // Pitch detect on this onset
+    var pitch=detectPitch(freqBuf,ac.sampleRate);
+    globalMaxScore=Math.max(globalMaxScore,pitch.score);
+    var normScore=globalMaxScore>0?pitch.score/globalMaxScore:0;
+
+    if(normScore>MIN_SCORE&&pitch.idx>=0){
+      var s=SCALE[pitch.idx];
+      noteName.textContent=s.n;
+      noteSub.textContent=Math.round(s.f)+' Hz';
+      // Highlight dot
+      dots.forEach(function(d,i){
+        d.classList.toggle('lit',i===pitch.idx);
+      });
+      // Fade out after 1.5s
+      clearTimeout(noteFadeTimer);
+      noteFadeTimer=setTimeout(function(){
+        noteName.textContent='·';noteSub.textContent='';
+        dots.forEach(function(d){d.classList.remove('lit');});
+      },1500);
+    } else {
+      // onset but unclear pitch
+      noteName.textContent='·';
+      noteSub.textContent='onset';
+      clearTimeout(noteFadeTimer);
+      noteFadeTimer=setTimeout(function(){noteName.textContent='—';noteSub.textContent='';},600);
+    }
+  }
+}
+var noteFadeTimer=null;
+</script>
+</body>
+</html>
