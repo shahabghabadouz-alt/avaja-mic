@@ -121,7 +121,7 @@ function stopMic(){micRunning=false;if(micStream)micStream.getTracks().forEach(f
 function getRMS(buf){var s=0;for(var i=0;i<buf.length;i++)s+=buf[i]*buf[i];return Math.sqrt(s/buf.length);}
 function detectHPS(freqData,sr){var binHz=sr/FFT,bw=5;function bandE(f){var b=Math.round(f/binHz),e=0;for(var i=Math.max(0,b-bw);i<=Math.min(freqData.length-1,b+bw);i++){var lin=Math.pow(10,freqData[i]/20);e+=lin*lin;}return Math.sqrt(e);}var best=-1,bestScore=-Infinity;SCALE.forEach(function(s,i){var score=bandE(s.f)*Math.pow(bandE(s.f*2),.6)*Math.pow(bandE(s.f*3),.3)*Math.pow(bandE(s.f*4),.1);if(score>bestScore){bestScore=score;best=i;}});return best;}
 function echoNote(idx){
-  if(!ac)initAudio();
+  if(if(!ac)return;
   var f=SCALE[idx].f,t=ac.currentTime+.05;
   var o=ac.createOscillator(),g=ac.createGain();
   o.type='sine';o.frequency.value=f;
