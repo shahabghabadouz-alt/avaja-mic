@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>AVAJA · Presence Lab v6</title>
+<title>AVAJA · Presence Lab v14</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{width:100%;height:100%;background:#0e0c0a;color:#c8d4e0;font-family:Tahoma,sans-serif;overflow:hidden;user-select:none;}
@@ -31,7 +31,7 @@ html,body{width:100%;height:100%;background:#0e0c0a;color:#c8d4e0;font-family:Ta
 .cb2{flex:1;max-width:80px;height:24px;border-radius:4px;border:1px solid rgba(140,170,200,.12);background:rgba(15,14,10,.6);color:rgba(130,160,190,.45);font-size:7px;cursor:pointer;font-family:Tahoma;}
 .cb2.sel{border-color:rgba(100,180,140,.5);color:rgba(120,200,160,.8);background:rgba(20,60,40,.3);}
 /* ambient layers */
-#layers{position:fixed;bottom:96px;left:0;right:0;padding:6px 12px;display:flex;gap:8px;}
+#layers{position:fixed;bottom:62px;left:0;right:0;padding:6px 12px;display:flex;gap:8px;}
 .layer{flex:1;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:5px;}
 .layer.on{border-color:rgba(185,140,20,.3);background:rgba(40,30,5,.4);}
 .ly-top{display:flex;align-items:center;justify-content:space-between;}
@@ -43,7 +43,7 @@ html,body{width:100%;height:100%;background:#0e0c0a;color:#c8d4e0;font-family:Ta
 input[type=range]{width:100%;height:2px;-webkit-appearance:none;background:rgba(180,160,120,.15);border-radius:1px;outline:none;}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:rgba(185,140,20,.7);}
 /* pad sliders */
-#sliders{position:fixed;bottom:48px;left:0;right:0;padding:6px 12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+#sliders{display:none;position:fixed;bottom:48px;left:0;right:0;padding:6px 12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
 .sw{display:flex;flex-direction:column;gap:3px;}
 .sl{font-size:7px;letter-spacing:.1em;color:rgba(140,155,170,.35);text-transform:uppercase;text-align:center;}
 .sv{font-size:8px;color:rgba(185,140,20,.6);text-align:center;}
@@ -70,7 +70,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 <body>
 <canvas id="canvas"></canvas>
 <div id="bar">
-  <div id="bar-title">AVAJA · PRESENCE LAB v6</div>
+  <div id="bar-title">AVAJA · PRESENCE LAB v14</div>
   <div id="mic-status">off</div>
   <button id="mic-btn" onclick="toggleMic()">🎤</button>
 </div>
@@ -91,9 +91,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
 
   <div id="chord-row">
-    <button class="cb2 sel" onclick="setChordMode('interval')">Interval</button>
-    <button class="cb2" onclick="setChordMode('harmonic')">Harmonic</button>
+    <button class="cb2" onclick="setChordMode('interval')">Interval</button>
+    <button class="cb2 sel" onclick="setChordMode('harmonic')">Harmonic</button>
     <button class="cb2" onclick="setChordMode('deep')">Deep</button>
+  </div>
+  <!-- strum mode -->
+  <div id="strum-row" style="position:fixed;bottom:152px;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:0 12px;">
+    <button class="cb2 sel" id="sm-pad" onclick="setStrumMode('pad')">Pad</button>
+    <button class="cb2" id="sm-strum" onclick="setStrumMode('strum')">Strum</button>
+    <button class="cb2" id="sm-pulse" onclick="setStrumMode('pulse')">Pulse</button>
   </div>
 
   <!-- Ambient layers -->
@@ -102,7 +108,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-noise">
       <div class="ly-top">
         <span class="ly-name">Noise</span>
-        <button class="ly-tog" id="ntog" onclick="toggleLayer('noise')"></button>
+        <button class="ly-tog" id="noisetog" onclick="toggleLayer('noise')"></button>
       </div>
       <input type="range" id="nv" min="1" max="100" value="30" oninput="setLayerVol('noise',this.value)">
     </div>
@@ -110,7 +116,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-bass">
       <div class="ly-top">
         <span class="ly-name">Bass</span>
-        <button class="ly-tog" id="btog" onclick="toggleLayer('bass')"></button>
+        <button class="ly-tog" id="basstog" onclick="toggleLayer('bass')"></button>
       </div>
       <input type="range" id="bv" min="1" max="100" value="50" oninput="setLayerVol('bass',this.value)">
     </div>
@@ -118,7 +124,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <div class="layer" id="ly-rain">
       <div class="ly-top">
         <span class="ly-name">Rain</span>
-        <button class="ly-tog" id="rtog" onclick="toggleLayer('rain')"></button>
+        <button class="ly-tog" id="raintog" onclick="toggleLayer('rain')"></button>
       </div>
       <input type="range" id="rv2" min="1" max="100" value="25" oninput="setLayerVol('rain',this.value)">
     </div>
@@ -128,7 +134,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   <div id="sliders">
     <div class="sw"><div class="sl">Vol</div><input type="range" id="svol" min="10" max="100" value="85" oninput="document.getElementById('vval').textContent=this.value"><div class="sv" id="vval">85</div></div>
     <div class="sw"><div class="sl">Reverb</div><input type="range" id="srvb" min="0" max="100" value="55" oninput="document.getElementById('rval').textContent=this.value"><div class="sv" id="rval">55</div></div>
-    <div class="sw"><div class="sl">Sustain</div><input type="range" id="ssus" min="2" max="20" value="7" oninput="document.getElementById('sval').textContent=this.value+'s'"><div class="sv" id="sval">7s</div></div>
+    <div class="sw"><div class="sl">Sustain</div><input type="range" id="ssus" min="2" max="10" value="5" oninput="document.getElementById('sval').textContent=this.value+'s'"><div class="sv" id="sval">5s</div></div>
     <div class="sw"><div class="sl">Fade</div><input type="range" id="sfade" min="1" max="10" value="3" oninput="document.getElementById('fval').textContent=this.value+'s'"><div class="sv" id="fval">3s</div></div>
   </div>
 
@@ -167,7 +173,7 @@ var DING_IDX=16;
 
 // ── Audio ─────────────────────────────────────────────────────────────
 var ac=null,mg=null,rv=null,sbus=null;
-var tech='open',chordMode='interval';
+var tech='open',chordMode='harmonic';
 var currentPadGain=null,currentPadOscs=[];
 var layers={noise:{on:false,vol:0.30,nodes:{}},bass:{on:false,vol:0.50,timer:null},rain:{on:false,vol:0.25,timer:null}};
 var currentChordIdxs=[16,12,8]; // default D3 chord
@@ -265,7 +271,7 @@ function sPad(indices,vol,rvb,t){
   var sus=gSus(),atk=Math.min(2.0,sus*0.25),padVol=vol*0.80;
   var masterG=ac.createGain(),rvbG=ac.createGain();
   rvbG.gain.value=rvb*0.88;masterG.connect(mg);masterG.connect(rvbG);rvbG.connect(rv);
-  masterG.gain.setValueAtTime(0,t);masterG.gain.linearRampToValueAtTime(padVol,t+atk);
+  masterG.gain.setValueAtTime(0,t);masterG.gain.linearRampToValueAtTime(padVol*.2,t+.05);masterG.gain.linearRampToValueAtTime(padVol,t+atk);
   masterG.gain.setTargetAtTime(padVol*0.8,t+atk,sus*0.3);
   masterG.gain.setTargetAtTime(0.001,t+atk+sus,sus*0.4);
   var oscs=[];
@@ -292,19 +298,19 @@ function play(idx){
   else if(tech==='strike')sStrike(f,v,r,t);
   else if(tech==='ding')sDing(f,v,r,t);
   else if(tech==='anti')sAnti(f,v,r,t);
-  else{sPad(getChords(idx),v,r,t);}
+  else{playChord(getChords(idx),v,r,t);}
   rpl(f);
 }
 function dn(a,s){if(!sbus)return;var t=ac.currentTime;sbus.gain.cancelScheduledValues(t);sbus.gain.setValueAtTime(sbus.gain.value,t);sbus.gain.linearRampToValueAtTime(1-a,t+.05);sbus.gain.linearRampToValueAtTime(1,t+.05+s);}
 
 // ── Ambient Layers ────────────────────────────────────────────────────
 function toggleLayer(name){
-  ia();
+  ia();rs();
   layers[name].on=!layers[name].on;
-  var tog=document.getElementById(name[0]+'tog');
+  var tog=document.getElementById(name+'tog');
   var ly=document.getElementById('ly-'+name);
-  tog.classList.toggle('on',layers[name].on);
-  ly.classList.toggle('on',layers[name].on);
+  if(tog)tog.classList.toggle('on',layers[name].on);
+  if(ly)ly.classList.toggle('on',layers[name].on);
   if(layers[name].on){startLayer(name);}else{stopLayer(name);}
 }
 
@@ -446,7 +452,7 @@ function startMic(){
   .then(function(s){mStr=s;var src=ac.createMediaStreamSource(s);mAn=ac.createAnalyser();mAn.fftSize=FFT;mAn.smoothingTimeConstant=0.5;src.connect(mAn);mTb=new Float32Array(FFT);mFb=new Float32Array(mAn.frequencyBinCount);mOn=true;document.getElementById('mic-btn').classList.add('on');mSt.textContent='on';mTick();})
   .catch(function(e){mSt.textContent='denied:'+e.name;});
 }
-function stopMic(){mOn=false;if(mStr)mStr.getTracks().forEach(function(t){t.stop();});document.getElementById('mic-btn').classList.remove('on');mSt.textContent='off';}
+function stopMic(){mOn=false;if(_mTid)clearTimeout(_mTid);_mTid=null;if(mStr)mStr.getTracks().forEach(function(t){t.stop();});document.getElementById('mic-btn').classList.remove('on');mSt.textContent='off';}
 function gRMS(b){var s=0;for(var i=0;i<b.length;i++)s+=b[i]*b[i];return Math.sqrt(s/b.length);}
 function dHPS(fd,sr){
   var bH=sr/FFT,bw=5;
@@ -456,16 +462,73 @@ function dHPS(fd,sr){
   return best;
 }
 function echo(idx){
-  ia();rs();silentUntil=Date.now()+950;
-  sPad(getChords(idx),gV(),gR(),ac.currentTime+.06);
+  ia();rs();
+  var silDur=Math.min((gSus()+gFade()+1.2)*1000,9000);
+  silentUntil=Date.now()+silDur;
+  playChord(getChords(idx),gV(),gR(),ac.currentTime+.06);
   mH(idx);hEl.textContent='← '+N[idx][0]+N[idx][1];setTimeout(function(){hEl.textContent='';},2500);
 }
+
+// ── Strum mode ────────────────────────────────────────────────────────
+var strumMode='pad'; // 'pad' | 'strum' | 'pulse'
+var pulseTimer=null;
+
+function setStrumMode(m){
+  strumMode=m;
+  document.getElementById('sm-pad').classList.toggle('sel',m==='pad');
+  document.getElementById('sm-strum').classList.toggle('sel',m==='strum');
+  document.getElementById('sm-pulse').classList.toggle('sel',m==='pulse');
+  if(pulseTimer){clearInterval(pulseTimer);pulseTimer=null;}
+}
+
+// Strum: play chord notes sequentially with 80ms gap
+function playStrum(idxs,vol,rvb){
+  idxs.forEach(function(idx,i){
+    setTimeout(function(){
+      if(!ac)return;
+      sStrike(calFreqs[idx],vol*0.55,rvb*0.6,ac.currentTime);
+    },i*80);
+  });
+}
+
+// Pulse: chord repeats as strikes every N seconds
+function playPulse(idxs,vol,rvb){
+  if(pulseTimer)clearInterval(pulseTimer);
+  var count=0,maxPulse=4;
+  // first immediately
+  playStrum(idxs,vol,rvb);
+  pulseTimer=setInterval(function(){
+    count++;
+    if(count>=maxPulse){clearInterval(pulseTimer);pulseTimer=null;return;}
+    playStrum(idxs,vol*Math.pow(0.75,count),rvb);
+  },gSus()*250+600);
+}
+
+// Override sPad call to check strum mode
+function playChord(idxs,vol,rvb,t){
+  if(strumMode==='strum'){
+    setTimeout(function(){playStrum(idxs,vol,rvb);},Math.round((t-ac.currentTime)*1000));
+  } else if(strumMode==='pulse'){
+    setTimeout(function(){playPulse(idxs,vol,rvb);},Math.round((t-ac.currentTime)*1000));
+  } else {
+    sPad(idxs,vol,rvb,t);
+  }
+}
+
+var _mTid=null;
 function mTick(){
-  if(!mOn||!mAn)return;if(ac&&ac.state==='suspended')ac.resume();requestAnimationFrame(mTick);
+  if(!mOn||!mAn)return;
+  if(ac&&ac.state==='suspended')ac.resume();
   mAn.getFloatTimeDomainData(mTb);var r=gRMS(mTb);
   oH.push(r);if(oH.length>8)oH.shift();var avg=oH.reduce(function(a,b){return a+b;},0)/oH.length;
-  var now=Date.now();if(now<silentUntil)return;
-  if(r>0.03&&r>avg*1.5&&now-lO>280){lO=now;dn(.3,.6);setTimeout(function(){if(!mAn||Date.now()<silentUntil)return;mAn.getFloatFrequencyData(mFb);var idx=dHPS(mFb,ac.sampleRate);if(idx>=0)echo(idx);},80);}
+  var now=Date.now();
+  if(now>silentUntil){
+    if(r>0.03&&r>avg*1.5&&now-lO>300){
+      lO=now;dn(.3,.6);
+      setTimeout(function(){if(!mAn||!mOn||Date.now()<silentUntil)return;mAn.getFloatFrequencyData(mFb);var idx=dHPS(mFb,ac.sampleRate);if(idx>=0)echo(idx);},80);
+    }
+  }
+  _mTid=setTimeout(mTick,22);
 }
 document.addEventListener('touchstart',function(){if(ac&&ac.state==='suspended')ac.resume();},{passive:true});
 </script>
