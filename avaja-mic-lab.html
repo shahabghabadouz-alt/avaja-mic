@@ -215,13 +215,13 @@ function fadeOutPad(dur){
   currentPadGain.gain.linearRampToValueAtTime(0,t+fd);
   var oscs=currentPadOscs.slice();
   currentPadGain=null;currentPadOscs=[];
-  setTimeout(function(){oscs.forEach(function(o){try{o.stop();}catch(e){}});},( fd+0.3)*1000);
+  setTimeout(function(){oscs.forEach(function(o){try{o.stop();}catch(e){}});},( fd+1.0)*1000);
 }
 function fadeOutNow(){ia();rs();fadeOutPad(gFade());}
 
 function sPad(indices,vol,rvb,t){
   fadeOutPad(gFade());
-  var sus=gSus(),atk=gAtk(),padVol=vol*0.85;
+  var sus=gSus(),atk=gAtk(),padVol=vol*0.72;
   var masterG=ac.createGain(),rvbG=ac.createGain();
   rvbG.gain.value=rvb*0.88;masterG.connect(mg);masterG.connect(rvbG);rvbG.connect(rv);
   masterG.gain.setValueAtTime(0,t);masterG.gain.linearRampToValueAtTime(padVol,t+atk);
@@ -230,7 +230,7 @@ function sPad(indices,vol,rvb,t){
   var oscs=[];
   indices.forEach(function(idx,i){
     var f=calFreqs[idx],detune=[-4,0,4,7][i%4];
-    [[1,.52],[2.02,.26],[3.01,.09]].forEach(function(p){
+    [[1,.58],[2.02,.22]].forEach(function(p){  // 2 harmonics reduces clipping
       var o=ac.createOscillator(),og=ac.createGain();og.gain.value=p[1];o.type='sine';o.frequency.value=f*p[0];o.detune.value=detune;o.connect(og);og.connect(masterG);o.start(t);o.stop(t+atk+sus+gFade()+2);oscs.push(o);
     });
     var lfo=ac.createOscillator(),lfg=ac.createGain();lfo.type='sine';lfo.frequency.value=0.12+i*0.035;lfg.gain.value=0.055;lfo.connect(lfg);lfg.connect(masterG.gain);lfo.start(t);lfo.stop(t+atk+sus+gFade()+2);oscs.push(lfo);
@@ -378,7 +378,7 @@ function saveCal(){try{localStorage.setItem('avaja_cal_v3',JSON.stringify(calFre
 // ── Microphone ────────────────────────────────────────────────────────
 var mStr=null,mAn=null,mTb=null,mFb=null,mOn=false,lO=0,oH=[],FFT=8192;
 var hEl=document.getElementById('heard'),mSt=document.getElementById('mic-status');
-var silentUntil=0,_mTid=null;
+var silentUntil=0,_mTid=null,envAvg=0.04;
 
 function toggleMic(){if(!mOn)startMic();else stopMic();}
 function startMic(){
@@ -421,8 +421,10 @@ function mTick(){
   oH.push(r);if(oH.length>8)oH.shift();
   var avg=oH.reduce(function(a,b){return a+b;},0)/oH.length;
   var now=Date.now();
+  envAvg=envAvg*0.998+r*0.002;
   if(now>silentUntil){
-    if(r>0.03&&r>avg*1.5&&now-lO>300){
+    var thresh=Math.max(0.03,envAvg*3.0);
+    if(r>thresh&&r>avg*1.6&&now-lO>350){
       lO=now;
       setTimeout(function(){
         if(!mAn||!mOn||Date.now()<silentUntil)return;
