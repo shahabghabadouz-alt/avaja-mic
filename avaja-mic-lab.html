@@ -746,7 +746,7 @@ var lastOnsetTime=0;
 var silenceWatchTimer=null;
 var lockRoundsAfterStop=0;
 var prevRMS=0;
-var onsetThreshBase=0.015;
+var onsetThreshBase=0.004;
 
 function setState(s,hint){
   document.getElementById('lock-state').textContent=s;
@@ -817,7 +817,7 @@ function micStep(){
   var now=ac.currentTime;
   var minIOI=0.22; // 272 BPM max
 
-  if(dE>onsetThreshBase && rms>0.008 && (now-lastOnsetTime)>minIOI){
+  if(dE>onsetThreshBase && rms>0.002 && (now-lastOnsetTime)>minIOI){
     lastOnsetTime=now;
     onsetDetected(now);
   }
@@ -828,9 +828,12 @@ function onsetDetected(t){
   // keep last 8 onsets
   if(onsetTimes.length>8)onsetTimes.shift();
   // update adaptive threshold based on recent energy
-  onsetThreshBase=Math.max(0.012,prevRMS*1.6);
+  onsetThreshBase=Math.max(0.003,prevRMS*1.4);
 
   spawnRing(.35,130);
+  // flash the ring visually so user can confirm onset was detected
+  flashRing(false);
+  beatFlash=0.3;
 
   if(onsetTimes.length>=3){
     // calculate IOI from recent intervals
